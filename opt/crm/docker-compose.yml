@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  chatwoot:
+    image: chatwoot/chatwoot:latest
+    container_name: chatwoot
+    restart: unless-stopped
+    volumes:
+      # Arquivos persistidos pelo Active Storage (uploads/anexos)
+      - chatwoot_storage:/app/storage
+      # Uploads públicos (quando usados por customizações da imagem)
+      - chatwoot_public:/app/public
+
+  evolution_api:
+    image: atendai/evolution-api:latest
+    container_name: evolution_api
+    restart: unless-stopped
+    volumes:
+      # Estado persistente das instâncias (sessão Baileys / QR / credenciais)
+      - evolution_instances:/evolution/instances
+
+volumes:
+  chatwoot_storage:
+    name: chatwoot_storage
+  chatwoot_public:
+    name: chatwoot_public
+  evolution_instances:
+    name: evolution_instances
