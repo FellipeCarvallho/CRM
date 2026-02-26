@@ -1,0 +1,11 @@
+[Unit]
+Description=Agenda renovacao de certificados Let's Encrypt
+
+[Timer]
+OnCalendar=*-*-* 03,15:00:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=certbot-renew-nginx.service
+
+[Install]
+WantedBy=timers.target
