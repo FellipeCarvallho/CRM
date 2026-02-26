@@ -99,3 +99,8 @@ pm2 save
 - [ ] Follow-up de recompra enviado após janela definida.
 - [ ] Volumes persistentes preservados após restart (`chatwoot` e `evolution`).
 - [ ] SSL renovando automaticamente.
+
+## Skills locais
+
+- `skills/crm-stack-deployer`: guia para deploy/bootstrap da stack CRM.
+- `skills/crm-automation-maintainer`: guia para manutenção/debug de bot, follow-up e sync de pedidos.
