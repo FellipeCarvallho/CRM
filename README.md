@@ -2,6 +2,13 @@
 
 Implementação pronta para VPS Ubuntu 24.04 usando Docker Compose.
 
+## 0) Requisitos mínimos
+
+- Ubuntu 24.04 LTS
+- Docker + Docker Compose plugin
+- 2 vCPU / 4GB RAM (mínimo funcional)
+- Domínio com DNS para `crm.*` e `evolution.*`
+
 ## 1) Arquivos principais
 
 - `docker-compose.yml`: stack completa (Postgres, Redis, Chatwoot web/worker, Evolution, Nginx, Certbot).
@@ -88,7 +95,9 @@ pm2 save
 
 ## Próximos passos rápidos
 
+- Instalação completa: `docs/instalacao-configuracao-execucao.md`
 - Guia operacional: `docs/proximos-passos.md`
+- Revisão técnica: `docs/revisao-tecnica.md`
 - Bootstrap automatizado: `./scripts/bootstrap-crm.sh`
 
 ## 8) Revisão operacional (go-live)

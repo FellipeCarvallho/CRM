@@ -10,6 +10,11 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "[ERRO] openssl não encontrado no PATH. Instale openssl antes de continuar." >&2
+  exit 1
+fi
+
 mkdir -p "$CRM_DIR"/data/{postgres,redis,chatwoot/storage,chatwoot/public,evolution}
 mkdir -p "$CRM_DIR"/certbot/{www,conf}
 
