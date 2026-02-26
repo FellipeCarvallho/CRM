@@ -18,7 +18,7 @@ function sanitizeValue(key, value) {
   return '[REDACTED]';
 }
 
-function sanitizeObject(payload) {
+export function sanitizeObject(payload) {
   if (!payload || typeof payload !== 'object') return payload;
 
   if (Array.isArray(payload)) {
@@ -36,7 +36,7 @@ function sanitizeObject(payload) {
   }, {});
 }
 
-function safeLog(level, message, payload = {}) {
+export function safeLog(level, message, payload = {}) {
   const event = {
     level,
     message,
@@ -44,11 +44,5 @@ function safeLog(level, message, payload = {}) {
     timestamp: new Date().toISOString(),
   };
 
-  // Never log process.env or secret file paths.
   process.stdout.write(`${JSON.stringify(event)}\n`);
 }
-
-module.exports = {
-  safeLog,
-  sanitizeObject,
-};

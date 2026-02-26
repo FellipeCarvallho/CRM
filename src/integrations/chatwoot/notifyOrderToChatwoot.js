@@ -1,5 +1,3 @@
-'use strict';
-
 const OPEN_STATUSES = new Set(['open', 'pending']);
 const WHATSAPP_CHANNELS = new Set(['Channel::Whatsapp', 'whatsapp']);
 
@@ -40,7 +38,7 @@ function normalizeListResponse(response, candidates) {
   return [];
 }
 
-function extractContacts(searchResponse) {
+export function extractContacts(searchResponse) {
   return normalizeListResponse(searchResponse, [
     ['payload'],
     ['data', 'payload'],
@@ -49,7 +47,7 @@ function extractContacts(searchResponse) {
   ]);
 }
 
-function extractConversations(conversationsResponse) {
+export function extractConversations(conversationsResponse) {
   return normalizeListResponse(conversationsResponse, [
     ['payload'],
     ['data', 'payload'],
@@ -73,14 +71,18 @@ function isWhatsAppConversation(conversation, allowedInboxIds) {
   return true;
 }
 
-function selectConversation(conversations, options = {}) {
+export function selectConversation(conversations, options = {}) {
   const filtered = conversations
     .filter((conversation) => {
       const status = conversation?.status;
       if (!OPEN_STATUSES.has(status)) return false;
       return isWhatsAppConversation(conversation, options.allowedInboxIds);
     })
-    .sort((a, b) => toEpoch(b?.last_activity_at || b?.updated_at || b?.created_at) - toEpoch(a?.last_activity_at || a?.updated_at || a?.created_at));
+    .sort(
+      (a, b) =>
+        toEpoch(b?.last_activity_at || b?.updated_at || b?.created_at) -
+        toEpoch(a?.last_activity_at || a?.updated_at || a?.created_at)
+    );
 
   return filtered[0] || null;
 }
@@ -93,7 +95,7 @@ function buildCorrelation({ orderId, contactId, conversationId }) {
   };
 }
 
-function buildIdempotencyKey(orderId) {
+export function buildIdempotencyKey(orderId) {
   return `order:confirmed:${orderId}`;
 }
 
@@ -106,7 +108,7 @@ function appendUnique(list, value) {
   return list.includes(value) ? list : [...list, value];
 }
 
-async function notifyOrderToChatwoot({
+export async function notifyOrderToChatwoot({
   order,
   customerPhone,
   accountId,
@@ -114,15 +116,9 @@ async function notifyOrderToChatwoot({
   logger = defaultLogger,
   allowedInboxIds,
 }) {
-  if (!order || !order.id) {
-    throw new Error('order.id é obrigatório');
-  }
-  if (!customerPhone) {
-    throw new Error('customerPhone é obrigatório');
-  }
-  if (!accountId) {
-    throw new Error('accountId é obrigatório');
-  }
+  if (!order || !order.id) throw new Error('order.id é obrigatório');
+  if (!customerPhone) throw new Error('customerPhone é obrigatório');
+  if (!accountId) throw new Error('accountId é obrigatório');
   if (!apiClient || typeof apiClient.get !== 'function' || typeof apiClient.post !== 'function' || typeof apiClient.patch !== 'function') {
     throw new Error('apiClient deve implementar get/post/patch');
   }
@@ -219,11 +215,3 @@ async function notifyOrderToChatwoot({
     idempotencyKey,
   };
 }
-
-module.exports = {
-  notifyOrderToChatwoot,
-  extractContacts,
-  extractConversations,
-  selectConversation,
-  buildIdempotencyKey,
-};

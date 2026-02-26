@@ -1,106 +1,71 @@
-const CHATWOOT_URL = process.env.CHATWOOT_URL
-const CHATWOOT_TOKEN = process.env.CHATWOOT_AGENT_TOKEN
-const ACCOUNT_ID = process.env.ACCOUNT_ID || 1
+import { notifyOrderToChatwoot as coreNotifyOrderToChatwoot } from '../src/integrations/chatwoot/notifyOrderToChatwoot.js';
 
-const processedOrders = new Set()
+const CHATWOOT_URL = process.env.CHATWOOT_URL;
+const CHATWOOT_TOKEN = process.env.CHATWOOT_AGENT_TOKEN;
+const ACCOUNT_ID = Number(process.env.ACCOUNT_ID || 1);
+
+if (!CHATWOOT_URL || !CHATWOOT_TOKEN || !ACCOUNT_ID) {
+  throw new Error('CHATWOOT_URL, CHATWOOT_AGENT_TOKEN e ACCOUNT_ID são obrigatórios');
+}
+
+function buildHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    api_access_token: CHATWOOT_TOKEN,
+  };
+}
+
+const apiClient = {
+  async get(path, options = {}) {
+    const url = new URL(path, CHATWOOT_URL);
+    if (options.params) {
+      for (const [key, value] of Object.entries(options.params)) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+
+    const res = await fetch(url, { headers: { api_access_token: CHATWOOT_TOKEN } });
+    if (!res.ok) throw new Error(`chatwoot_get_failed:${res.status}:${path}`);
+    return { data: await res.json() };
+  },
+
+  async post(path, payload) {
+    const url = new URL(path, CHATWOOT_URL);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: buildHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`chatwoot_post_failed:${res.status}:${path}`);
+    return { data: await safeJson(res) };
+  },
+
+  async patch(path, payload) {
+    const url = new URL(path, CHATWOOT_URL);
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: buildHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`chatwoot_patch_failed:${res.status}:${path}`);
+    return { data: await safeJson(res) };
+  },
+};
+
+async function safeJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
 
 export async function notifyOrderToChatwoot(order) {
-  if (!order?.id || processedOrders.has(order.id)) {
-    return
-  }
-
-  try {
-    const contact = await searchContactByPhone(order.clientPhone)
-    if (!contact) return
-
-    const conversation = await findBestConversation(contact.id)
-    if (!conversation) return
-
-    await postOrderNote(conversation.id, order)
-    await updateContactAttributes(contact, order)
-
-    processedOrders.add(order.id)
-    console.info('order_notified', {
-      order_id: order.id,
-      contact_id: contact.id,
-      conversation_id: conversation.id
-    })
-  } catch (error) {
-    console.error('order_notify_failed', { order_id: order?.id, error: error.message })
-    throw error
-  }
-}
-
-async function searchContactByPhone(phone) {
-  const search = await fetch(
-    `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/contacts/search?q=${encodeURIComponent(phone)}`,
-    { headers: { api_access_token: CHATWOOT_TOKEN } }
-  )
-  if (!search.ok) throw new Error(`contacts_search_failed:${search.status}`)
-
-  const data = await search.json()
-  const contacts = data?.payload?.contacts || []
-  return contacts[0]
-}
-
-async function findBestConversation(contactId) {
-  const convRes = await fetch(`${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/contacts/${contactId}/conversations`, {
-    headers: { api_access_token: CHATWOOT_TOKEN }
-  })
-  if (!convRes.ok) throw new Error(`contact_conversations_failed:${convRes.status}`)
-
-  const convData = await convRes.json()
-  const conversations = convData?.payload || []
-
-  return conversations
-    .filter((c) => ['open', 'pending'].includes(c.status))
-    .sort((a, b) => new Date(b.last_activity_at || 0) - new Date(a.last_activity_at || 0))[0]
-}
-
-async function postOrderNote(conversationId, order) {
-  const payload = {
-    content:
-      `🧾 *Pedido Confirmado #${order.id}*\n\n` +
-      `📦 Itens: ${order.items.map((i) => `${i.qty}x ${i.name}`).join(', ')}\n` +
-      `💰 Total: R$ ${Number(order.total).toFixed(2)}\n` +
-      `📍 Endereço: ${order.deliveryAddress}`,
-    message_type: 'activity',
-    private: true
-  }
-
-  const res = await fetch(
-    `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/messages`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        api_access_token: CHATWOOT_TOKEN
-      },
-      body: JSON.stringify(payload)
-    }
-  )
-
-  if (!res.ok) throw new Error(`post_order_note_failed:${res.status}`)
-}
-
-async function updateContactAttributes(contact, order) {
-  const body = {
-    additional_attributes: {
-      ...(contact.additional_attributes || {}),
-      ltv: Number(contact.additional_attributes?.ltv || 0) + Number(order.total),
-      last_order_id: String(order.id),
-      last_order_date: new Date().toISOString()
-    }
-  }
-
-  const res = await fetch(`${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/contacts/${contact.id}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      api_access_token: CHATWOOT_TOKEN
-    },
-    body: JSON.stringify(body)
-  })
-
-  if (!res.ok) throw new Error(`update_contact_attributes_failed:${res.status}`)
+  return coreNotifyOrderToChatwoot({
+    order,
+    customerPhone: order?.clientPhone,
+    accountId: ACCOUNT_ID,
+    apiClient,
+    logger: (entry) => console.info('notify_order_chatwoot', entry),
+  });
 }
