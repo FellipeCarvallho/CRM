@@ -86,6 +86,11 @@ pm2 start bot/followup.job.js --cron "0 9 * * *" --name followup
 pm2 save
 ```
 
+## Próximos passos rápidos
+
+- Guia operacional: `docs/proximos-passos.md`
+- Bootstrap automatizado: `./scripts/bootstrap-crm.sh`
+
 ## 8) Revisão operacional (go-live)
 
 - [ ] Mensagens inbound chegam no Chatwoot.
