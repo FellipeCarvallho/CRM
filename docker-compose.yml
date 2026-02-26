@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  bot:
+    image: node:20-alpine
+    working_dir: /app
+    command: ["node", "services/bot/index.js"]
+    volumes:
+      - ./:/app:ro
+    environment:
+      NODE_ENV: production
+      BOT_TOKEN_FILE: /run/secrets/bot_token
+      BOT_DB_PASSWORD_FILE: /run/secrets/bot_db_password
+    secrets:
+      - bot_token
+      - bot_db_password
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  worker:
+    image: node:20-alpine
+    working_dir: /app
+    command: ["node", "services/worker/index.js"]
+    volumes:
+      - ./:/app:ro
+    environment:
+      NODE_ENV: production
+      WORKER_TOKEN_FILE: /run/secrets/worker_token
+      WORKER_DB_PASSWORD_FILE: /run/secrets/worker_db_password
+    secrets:
+      - worker_token
+      - worker_db_password
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  pedeai-integration:
+    image: node:20-alpine
+    working_dir: /app
+    command: ["node", "services/pedeai/index.js"]
+    volumes:
+      - ./:/app:ro
+    environment:
+      NODE_ENV: production
+      PEDEAI_API_TOKEN_FILE: /run/secrets/pedeai_api_token
+      PEDEAI_WEBHOOK_SECRET_FILE: /run/secrets/pedeai_webhook_secret
+    secrets:
+      - pedeai_api_token
+      - pedeai_webhook_secret
+    read_only: true
+    tmpfs:
+      - /tmp
+
+secrets:
+  bot_token:
+    file: ./secrets/bot_token.txt
+  bot_db_password:
+    file: ./secrets/bot_db_password.txt
+  worker_token:
+    file: ./secrets/worker_token.txt
+  worker_db_password:
+    file: ./secrets/worker_db_password.txt
+  pedeai_api_token:
+    file: ./secrets/pedeai_api_token.txt
+  pedeai_webhook_secret:
+    file: ./secrets/pedeai_webhook_secret.txt
