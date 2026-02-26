@@ -1,0 +1,14 @@
+# Runtime secrets
+.env
+.env.*
+secrets/*.txt
+secrets/*.secret
+
+# Node artifacts
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Local logs
+logs/
+*.log
