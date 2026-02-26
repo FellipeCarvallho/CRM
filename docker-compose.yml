@@ -1,67 +1,134 @@
-version: "3.9"
-
 services:
-  bot:
-    image: node:20-alpine
-    working_dir: /app
-    command: ["node", "services/bot/index.js"]
-    volumes:
-      - ./:/app:ro
+  postgres:
+    image: postgres:15
+    container_name: crm_postgres
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      NODE_ENV: production
-      BOT_TOKEN_FILE: /run/secrets/bot_token
-      BOT_DB_PASSWORD_FILE: /run/secrets/bot_db_password
-    secrets:
-      - bot_token
-      - bot_db_password
-    read_only: true
-    tmpfs:
-      - /tmp
-
-  worker:
-    image: node:20-alpine
-    working_dir: /app
-    command: ["node", "services/worker/index.js"]
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-chatwoot_production}
     volumes:
-      - ./:/app:ro
-    environment:
-      NODE_ENV: production
-      WORKER_TOKEN_FILE: /run/secrets/worker_token
-      WORKER_DB_PASSWORD_FILE: /run/secrets/worker_db_password
-    secrets:
-      - worker_token
-      - worker_db_password
-    read_only: true
-    tmpfs:
-      - /tmp
+      - /opt/crm/data/postgres:/var/lib/postgresql/data
+    networks:
+      - crm_internal
 
-  pedeai-integration:
-    image: node:20-alpine
-    working_dir: /app
-    command: ["node", "services/pedeai/index.js"]
+  redis:
+    image: redis:7-alpine
+    container_name: crm_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
     volumes:
-      - ./:/app:ro
-    environment:
-      NODE_ENV: production
-      PEDEAI_API_TOKEN_FILE: /run/secrets/pedeai_api_token
-      PEDEAI_WEBHOOK_SECRET_FILE: /run/secrets/pedeai_webhook_secret
-    secrets:
-      - pedeai_api_token
-      - pedeai_webhook_secret
-    read_only: true
-    tmpfs:
-      - /tmp
+      - /opt/crm/data/redis:/data
+    networks:
+      - crm_internal
 
-secrets:
-  bot_token:
-    file: ./secrets/bot_token.txt
-  bot_db_password:
-    file: ./secrets/bot_db_password.txt
-  worker_token:
-    file: ./secrets/worker_token.txt
-  worker_db_password:
-    file: ./secrets/worker_db_password.txt
-  pedeai_api_token:
-    file: ./secrets/pedeai_api_token.txt
-  pedeai_webhook_secret:
-    file: ./secrets/pedeai_webhook_secret.txt
+  chatwoot_web:
+    image: chatwoot/chatwoot:latest
+    container_name: chatwoot_web
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - .env
+    environment: &chatwoot_env
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      RAILS_ENV: production
+      NODE_ENV: production
+      FRONTEND_URL: ${FRONTEND_URL}
+      ENABLE_ACCOUNT_SIGNUP: "false"
+      INSTALLATION_ENV: docker
+      EXECJS_RUNTIME: Node
+      RAILS_LOG_TO_STDOUT: "true"
+      RAILS_SERVE_STATIC_FILES: "true"
+      DEFAULT_LOCALE: pt_BR
+      TZ: America/Sao_Paulo
+    command: bundle exec rails server -b 0.0.0.0 -p 3000
+    volumes:
+      - /opt/crm/data/chatwoot/storage:/app/storage
+      - /opt/crm/data/chatwoot/public:/app/public
+    networks:
+      - crm_internal
+
+  chatwoot_worker:
+    image: chatwoot/chatwoot:latest
+    container_name: chatwoot_worker
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - .env
+    environment: *chatwoot_env
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    volumes:
+      - /opt/crm/data/chatwoot/storage:/app/storage
+      - /opt/crm/data/chatwoot/public:/app/public
+    networks:
+      - crm_internal
+
+  evolution:
+    image: atendai/evolution-api:latest
+    container_name: evolution_api
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - .env
+    environment:
+      SERVER_TYPE: http
+      SERVER_PORT: 8080
+      AUTHENTICATION_TYPE: apikey
+      AUTHENTICATION_API_KEY: ${AUTHENTICATION_API_KEY}
+      CHATWOOT_ENABLED: "true"
+      CHATWOOT_URL: http://chatwoot_web:3000
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: ${DATABASE_URL}
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/2
+      TZ: America/Sao_Paulo
+    volumes:
+      - /opt/crm/data/evolution:/evolution/instances
+    networks:
+      - crm_internal
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: crm_nginx
+    restart: unless-stopped
+    depends_on:
+      - chatwoot_web
+      - evolution
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - /opt/crm/certbot/www:/var/www/certbot
+      - /opt/crm/certbot/conf:/etc/letsencrypt
+    networks:
+      - crm_internal
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: crm_certbot
+    restart: unless-stopped
+    volumes:
+      - /opt/crm/certbot/www:/var/www/certbot
+      - /opt/crm/certbot/conf:/etc/letsencrypt
+    entrypoint: /bin/sh -c
+    command: >
+      "trap exit TERM; while :; do
+      certbot renew --webroot -w /var/www/certbot --quiet;
+      sleep 12h & wait $${!};
+      done"
+
+networks:
+  crm_internal:
+    driver: bridge
