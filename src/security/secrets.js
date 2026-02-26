@@ -1,4 +1,4 @@
-const fs = require('fs');
+import fs from 'node:fs';
 
 function readSecretFromFile(path) {
   if (!path) return null;
@@ -9,7 +9,7 @@ function readSecretFromFile(path) {
   return fs.readFileSync(path, 'utf8').trim();
 }
 
-function readSecret(name) {
+export function readSecret(name) {
   const fromFile = process.env[`${name}_FILE`];
   if (fromFile) {
     return readSecretFromFile(fromFile);
@@ -17,14 +17,8 @@ function readSecret(name) {
 
   const fromEnv = process.env[name];
   if (fromEnv) {
-    throw new Error(
-      `${name} was provided via plain environment variable. Use ${name}_FILE with Docker secrets.`
-    );
+    throw new Error(`${name} was provided via plain environment variable. Use ${name}_FILE with Docker secrets.`);
   }
 
   throw new Error(`Missing secret: ${name}_FILE`);
 }
-
-module.exports = {
-  readSecret,
-};

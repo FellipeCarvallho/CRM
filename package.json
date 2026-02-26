@@ -1,0 +1,14 @@
+{
+  "name": "crm-whatsapp-automation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bot:start": "node bot/bot-server.js",
+    "followup:run": "node bot/followup.job.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "fastify": "^4.28.1"
+  }
+}

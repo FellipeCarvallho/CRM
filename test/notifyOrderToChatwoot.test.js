@@ -1,14 +1,12 @@
-'use strict';
+import test from 'node:test';
+import assert from 'node:assert/strict';
 
-const test = require('node:test');
-const assert = require('node:assert/strict');
-
-const {
+import {
   notifyOrderToChatwoot,
   extractContacts,
   extractConversations,
   selectConversation,
-} = require('../src/integrations/chatwoot/notifyOrderToChatwoot');
+} from '../src/integrations/chatwoot/notifyOrderToChatwoot.js';
 
 test('extractContacts aceita múltiplos formatos de resposta', () => {
   assert.equal(extractContacts({ payload: [{ id: 1 }] }).length, 1);
